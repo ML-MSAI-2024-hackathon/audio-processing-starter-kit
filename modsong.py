@@ -581,13 +581,25 @@ class MODSong(Song):
 
         self.current_channel = old_channel
         self.current_row = min(self.current_row + 1, MODSong.ROWS - 1)
+    
+    def tune_sample(self, sample_idx: int, semitone: int):
 
-    def get_sample(self, sample_idx: int) -> Sample:
-
-        if sample_idx <= 0 or sample_idx > MODSong.SAMPLES:
+        if sample_idx < 0 or sample_idx >= MODSong.SAMPLES:
             raise IndexError(f"Invalid sample index {sample_idx}")
-
-        return self.samples[sample_idx - 1]
+        
+        sorted_keys = sorted(MODSong.PERIOD_TABLE.keys(), reverse=True)
+        
+        for pi in self.pattern_seq:
+            for r in range(MODSong.ROWS):
+                for c in range(MODSong.CHANNELS):
+                    note = self.patterns[pi].data[c][r]
+                    if note.sample_idx == sample_idx + 1:
+                        start_index = sorted_keys.index(MODSong.INV_PERIOD_TABLE[note.period])
+                        new_index = start_index + semitone
+                        if new_index < 0 or new_index >= len(sorted_keys):
+                            raise ValueError(f"Can't tune the sample {sample_idx} by {semitone} semitones.")
+                        note.period = MODSong.PERIOD_TABLE[sorted_keys[new_index]]
+                        self.patterns[pi].data[c][r] = note
 
     def remove_sample(self, sample_idx: int):
         """
