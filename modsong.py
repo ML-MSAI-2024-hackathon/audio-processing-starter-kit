@@ -183,7 +183,7 @@ class MODSong(Song):
 
                             # dirty way for converting hex number to string... e.g. 0xF1 -> "F1"
                             note.effect = hex(e_type).lstrip("0x").upper() + hex(e_param)[2:].upper()
-                            
+
                             if e_type == 0:  # arpeggio effect
                                 note.effect = "0" + note.effect
 
@@ -594,11 +594,11 @@ class MODSong(Song):
         Deletes the sample from the sample bank.
         WARNING: This does not remove the sample notes from the song. The notes will stay, but will play mute.
 
-        :param sample_idx: The sample index to remove, 1 to 31.
+        :param sample_idx: The sample index to remove, 0 to 30.
         :return: None.
         """
 
-        if sample_idx <= 0 or sample_idx > MODSong.SAMPLES:
+        if sample_idx < 0 or sample_idx >= MODSong.SAMPLES:
             raise IndexError(f"Invalid sample index {sample_idx}")
 
         self.samples[sample_idx] = Sample()
@@ -608,15 +608,15 @@ class MODSong(Song):
         Deletes all samples in the sample bank, except for the one specified by the given index.
         WARNING: This does not remove the sample notes from the song. The notes will stay, but will play mute.
 
-        :param sample_idx: The sample index to be kept, 1 to 31.
+        :param sample_idx: The sample index to be kept, 0 to 30.
         :return: None.
         """
 
-        if sample_idx <= 0 or sample_idx > MODSong.SAMPLES:
+        if sample_idx < 0 or sample_idx >= MODSong.SAMPLES:
             raise IndexError(f"Invalid sample index {sample_idx}")
 
         for s in range(MODSong.SAMPLES):
-            if s + 1 != sample_idx:
+            if s + 1 != sample_idx + 1:
                 self.samples[s] = Sample()
 
     def get_note(self, pattern_in_song: int, row: int, channel: int) -> Note:
@@ -631,255 +631,6 @@ class MODSong(Song):
             raise IndexError(f"Invalid pattern index {pattern_in_song}")
 
         return self.patterns[self.pattern_seq[pattern_in_song]].data[channel][row]
-
-    def tune_sample(self, sample_idx: int, verbose: bool = False, cleanup: bool = True) -> str:
-        """
-        Tunes a specified sample by finding a map between true G (Sol) and the corresponding sample pitch.
-        The sample wave itself is not modified; the result is written in the .tune class field.
-
-        :param sample_idx: The sample index to tune.
-        :param verbose: False for silent tuning.
-        :param cleanup: True to remove the temporary MOD, WAV, and MIDI files used for tuning.
-        :return: The sample pitch corresponding to true G (Sol), or an empty string if the tuning failed.
-        """
-
-        if sample_idx <= 0 or sample_idx > MODSong.SAMPLES:
-            raise IndexError(f"Invalid sample index {sample_idx}")
-
-        # Lazy import within the function, because this module does very inefficient operations upon loading.
-        import basic_pitch.inference
-
-        tmp_fname = './tmp'
-
-        # Build dictionaries to convert pitches from MIDI format to MOD format.
-        # TODO: directly hardcode the dictionaries as Song statics
-
-        pitch_to_note = {}
-        note_to_pitch = {}
-        with open("./midi_notes.txt", 'r') as file:
-            for line in file:
-                items = line.split()
-                pitch_to_note[items[0]] = items[1]
-                note_to_pitch[items[1]] = items[0]
-
-        # Will temporarily replace the song with a single pattern and chromatic scales at two consecutive octaves.
-
-        backup_patterns = copy.deepcopy(self.patterns)
-        backup_seq = self.pattern_seq
-
-        bpm = 125
-        speed = 6
-        rows_per_beat = 4
-
-        # the formula holds in the absence of tempo effects, such as EDx (note delay), Fxx, etc.
-        # source: https://wiki.openmpt.org/Manual:_Song_Properties
-        tick_duration = ((60 / bpm) / rows_per_beat) / speed  # in ms
-
-        self.keep_pattern_from_seq(0)
-        self.use_pattern(0)
-        self.use_channel(2)
-        self.use_sample(sample_idx)
-
-        found = False
-
-        for octave in range(4, 6):
-
-            # Write two chromatic scales and consecutive octaves, and render as WAV.
-
-            octaves = [octave, octave + 1]
-
-            self.clear_pattern(0)
-
-            self.use_row(0)
-
-            self.use_channel(0)
-            self.set_bpm(bpm)
-
-            self.use_channel(1)
-            self.set_ticks_per_row(speed)
-
-            self.use_channel(2)
-
-            r = 0
-            for n in Song.PERIOD_SEQ:
-                self.use_row(r)
-                self.write_note(f"{n}{octaves[0]}")
-                r += 3
-            for n in Song.PERIOD_SEQ:
-                if r >= MODSong.ROWS:
-                    break
-                self.use_row(r)
-                self.write_note(f"{n}{octaves[1]}")
-                r += 3
-
-            self.render_as_wav(f"{tmp_fname}.wav", verbose, False)
-
-            # Detect the true notes from the chromatic scales.
-
-            _, midi_data, _ = basic_pitch.inference.predict(f"{tmp_fname}.wav")
-
-            if not cleanup:
-                midi_data.write(f"{tmp_fname}.mid")
-
-            if cleanup:
-                if os.path.isfile(f"{tmp_fname}.wav"):
-                    os.remove(f"{tmp_fname}.wav")
-                if os.path.isfile(f"{tmp_fname}.mod"):
-                    os.remove(f"{tmp_fname}.mod")
-                if os.path.isfile(f"{tmp_fname}.mid"):
-                    os.remove(f"{tmp_fname}.mid")
-
-            # Store the MOD notes in a list for future comparison, and print them in a readable way.
-
-            mod_notes = []
-
-            for r in range(MODSong.ROWS):
-                note = self.get_note(0, r, 2)
-                if note.period == "":
-                    if verbose:
-                        print('.', end='')
-                else:
-                    if verbose:
-                        print(note.period, end='')
-                    mod_notes.append(note.period)
-                if verbose:
-                    print(' ', end='')
-            if verbose:
-                print('')
-
-            # Store the MIDI notes in a list, and print them in a readable way.
-
-            n_notes = len(midi_data.instruments[0].notes)
-            midi_notes = ['' for _ in range(n_notes)]
-
-            for n in range(n_notes):
-                note = midi_data.instruments[0].notes[n]
-                if n == 0:
-                    n_rows = int(round(note.start / (tick_duration * speed)))
-                else:
-                    n_rows = int(round(
-                        (note.start - midi_data.instruments[0].notes[n - 1].start) / (tick_duration * speed))) - 1
-                if verbose:
-                    for _ in range(n_rows):
-                        print('. ', end='')
-                midi_notes[n] = pitch_to_note[str(note.pitch)]
-                if verbose:
-                    print(pitch_to_note[str(note.pitch)], end='')
-                    print(' ', end='')
-            if verbose:
-                print('')
-
-            # Compare the original MOD notes with the detected MIDI notes.
-
-            if len(mod_notes) != len(midi_notes):
-                if verbose:
-                    print(f"WARNING: ", end='')
-                found = False
-            else:
-                if verbose:
-                    print(f"OK: ", end='')
-                found = True
-            if verbose:
-                print(f"The note detection algorithm detected {len(midi_notes)} out of {len(mod_notes)} notes.")
-
-            is_chord = False
-
-            if len(midi_notes) > len(mod_notes):
-                if len(midi_notes) % len(mod_notes) == 0:
-                    is_chord = True
-                    print(f"Based on the amount of detected notes, this sample might actually be a "
-                          f"{int(len(midi_notes) / len(mod_notes))}-note chord.")
-                elif len(midi_notes) >= 1.5*len(mod_notes):
-                    print(f"Based on the amount of detected notes, this sample might actually be a chord.")
-
-            if not found and not is_chord:
-                continue
-
-            if is_chord:
-                print(f"Chords are not implemented yet.")  # TODO
-
-            full_scale = []
-            for o in range(1, 9):
-                for note in Song.PERIOD_SEQ:
-                    full_scale.append(f"{note}{o}")
-
-            mod_shifts = []
-            for i in range(2, len(mod_notes)):
-                mod_shifts.append(full_scale.index(mod_notes[i]) - full_scale.index(mod_notes[i - 1]))
-            midi_shifts = []
-            for i in range(2, len(midi_notes)):
-                midi_shifts.append(full_scale.index(midi_notes[i]) - full_scale.index(midi_notes[i - 1]))
-
-            if len(mod_shifts) == len(midi_shifts):
-                if mod_shifts != midi_shifts:
-                    found = False
-                    if verbose:
-                        print("WARNING: The two sequences have different inner pitch shifts.")
-                else:
-                    found = True
-                    if verbose:
-                        print("OK: The two sequences have the same inner pitch shifts.")
-
-            if not found:
-                continue
-
-            shifts_mod_to_midi = []
-            if len(mod_shifts) == len(midi_shifts):
-                for i in range(len(mod_notes)):
-                    s = full_scale.index(mod_notes[i]) - full_scale.index(midi_notes[i])
-                    shifts_mod_to_midi.append(s)
-
-            if all(n == shifts_mod_to_midi[0] for n in shifts_mod_to_midi):
-                found = True
-                if verbose:
-                    print("OK: The two sequences are coherent.")
-            else:
-                found = False
-                if verbose:
-                    print("WARNING: The two sequences are not coherent.")
-
-            if verbose:
-                print(f"MOD notes: {mod_notes}")
-                print(f"MID notes: {midi_notes}")
-
-            if not found:
-                continue
-
-            # Compute the amount of (semi)tones required to bring the MIDI in tune with the MOD samples.
-
-            shift = shifts_mod_to_midi[0]
-            n_octaves = int(shift / 12)
-            n_semitones = shift % 12
-
-            if verbose:
-                if shift > 0:
-                    sign = '+'
-                else:
-                    sign = '-'
-                if n_octaves > 0:
-                    print(
-                        f"Shift the MIDI notes by {sign}{n_octaves} octaves and {sign}{n_semitones} semitones to match the MOD.")
-                else:
-                    print(f"Shift the MIDI notes by {sign}{n_semitones} semitones to match the MOD.")
-
-            if found:  # no need to test the next octave
-                break
-
-        self.pattern_seq = backup_seq
-        self.patterns = backup_patterns
-
-        G = ''
-
-        if found:
-            for G_idx in range(len(midi_notes)):
-                if midi_notes[G_idx][:2] == 'G-':
-                    G = mod_notes[G_idx][:2]
-                    if G[1] == '-':
-                        G = G[0]
-                    break
-
-        self.samples[sample_idx].tune = G
-        return G
 
     def render_as_wav(self, fname: str, verbose: bool = True, cleanup: bool = False):
         """
