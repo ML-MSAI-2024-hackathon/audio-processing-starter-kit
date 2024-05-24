@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import torchaudio
 import io
 from scipy.io import wavfile
+import warnings
 
 
 def player(audio, zoom: float = 1., title: str = ""):
