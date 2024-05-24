@@ -9,14 +9,29 @@ import torchaudio
 import io
 from scipy.io import wavfile
 import warnings
+import modsong
+import os
 
 
 def player(audio, zoom: float = 1., title: str = ""):
     """ Provides a small audio player together with a plot of the waveform.
     """
-    pcm = audio.get_array_of_samples()
 
-    display(ipd.Audio(data=pcm, rate=audio.frame_rate))
+    if isinstance(audio, modsong.MODSong):
+        audio.render_as_wav("./tmp.wav", verbose=False, cleanup=True)
+        aud = pydub.AudioSegment.from_wav("./tmp.wav").set_channels(1)
+        pcm = aud.get_array_of_samples()
+        frame_rate = aud.frame_rate
+        os.remove("./tmp.wav")
+
+    elif isinstance(audio, pydub.AudioSegment):
+        pcm = audio.get_array_of_samples()
+        frame_rate = audio.frame_rate
+
+    else:
+        raise ValueError("audio must be either a MODSong or a pydub.AudioSegment")
+
+    display(ipd.Audio(data=pcm, rate=frame_rate))
 
     plt.figure(figsize=(6,2))
     plt.plot(pcm)
