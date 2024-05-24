@@ -670,7 +670,10 @@ class MODSong(Song):
 
         if os.path.isfile(f"{noext[0]}.mod.wav"):
             os.remove(f"{noext[0]}.mod.wav")
-        subprocess.run(f"ffmpeg -i {noext[0]}.mod {noext[0]}.mod.wav", check=True)
+        # this works only on Windows, not on macOS or Linux
+        # subprocess.run(f"ffmpeg -i {noext[0]}.mod {noext[0]}.mod.wav", check=True)
+        # this works on all platforms
+        subprocess.run(["ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
 
         shutil.move(f"{noext[0]}.mod.wav", fname)
 
