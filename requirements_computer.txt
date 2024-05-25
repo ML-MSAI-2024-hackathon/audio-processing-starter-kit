@@ -5,3 +5,5 @@ pydub
 scipy
 torch
 torchaudio
+jupyter
+ipykernel
