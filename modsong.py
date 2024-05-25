@@ -9,6 +9,7 @@ import subprocess
 import shutil
 import pydub
 import numpy as np
+import platform
 
 
 class MODSong(Song):
@@ -670,10 +671,18 @@ class MODSong(Song):
 
         if os.path.isfile(f"{noext[0]}.mod.wav"):
             os.remove(f"{noext[0]}.mod.wav")
-        # this works only on Windows, not on macOS or Linux
-        # subprocess.run(f"ffmpeg -i {noext[0]}.mod {noext[0]}.mod.wav", check=True)
-        # this works on all platforms
-        subprocess.run(["ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
+
+        os_name = platform.system()
+
+        if os_name == "Windows":
+            subprocess.run([f"./bins/{os_name}/ffmpeg-6.1.1-full_build-shared/bin/ffmpeg.exe", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
+        elif os_name == "Darwin":
+            subprocess.run([f"./bins/{os_name}/ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
+        elif os_name == "Linux":
+            raise NotImplementedError("Linux is not supported yet.")
+        else:
+            raise NotImplementedError(f"Unsupported OS: {os_name}.")
+        
 
         shutil.move(f"{noext[0]}.mod.wav", fname)
 
