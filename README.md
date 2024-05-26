@@ -1,6 +1,6 @@
-# starter-kit
+# Getting started with audio processing
 
-## Installation
+## Dependency installation
 
 - Clone this repository:
     - Click on the blue "Code" button in the right part of this page
