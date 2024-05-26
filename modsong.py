@@ -679,7 +679,7 @@ class MODSong(Song):
         elif os_name == "Darwin":
             subprocess.run([f"./bins/{os_name}/ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
         elif os_name == "Linux":
-            raise NotImplementedError("Linux is not supported yet.")
+            subprocess.run([f"./bins/{os_name}/ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
         else:
             raise NotImplementedError(f"Unsupported OS: {os_name}.")
         
