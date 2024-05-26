@@ -4,11 +4,11 @@ The following repo containts a primer on audio processing.
 
 You can choose to run it on Google Cloud or on your local computer.
 
-## Google Cloud
+## ☁️ Google Colab
 - open [this notebook](https://github.com/ML-MSAI-2024-hackathon/audio-processing-starter-kit/blob/main/welcome_colab.ipynb) on Google Colab.
 - follow the instructions in the notebook to complete the tutorial
 
-## Your local computer
+## 🖥️ Your local computer
 - Clone this repository:
     - Click on the blue "Code" button in the right part of this page
     - Select "GitHub Desktop" option
