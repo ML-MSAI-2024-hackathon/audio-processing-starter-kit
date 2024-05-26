@@ -288,11 +288,11 @@ class MODSong(Song):
                 raise ValueError(f"Sample length {int(len(waveform) / 2)} exceeds the MOD maximum of 128K.")
             data += int(len(waveform) / 2).to_bytes(2, byteorder='big', signed=False)
 
-            data += ((smp.finetune << 4) >> 4).to_bytes(1)
+            data += ((smp.finetune << 4) >> 4).to_bytes(1, byteorder='big')
 
             if smp.volume > 64:
                 print(f"Warning: Truncating max sample volume from {smp.volume} to 64.")
-            data += min(smp.volume, 64).to_bytes(1)
+            data += min(smp.volume, 64).to_bytes(1, byteorder='big')
 
             data += int(smp.repeat_point / 2).to_bytes(2, byteorder='big', signed=False)
             data += int(smp.repeat_len / 2).to_bytes(2, byteorder='big', signed=False)
@@ -301,8 +301,8 @@ class MODSong(Song):
         # Write the song sequence
         # ----------------------------
 
-        data += len(self.pattern_seq).to_bytes(1)
-        data += int(127).to_bytes(1)
+        data += len(self.pattern_seq).to_bytes(1, byteorder='big')
+        data += int(127).to_bytes(1, byteorder='big')
         data += bytearray(self.pattern_seq) + bytearray(128 - len(self.pattern_seq))
         data += bytes("M.K.", 'utf-8')
 
@@ -679,7 +679,8 @@ class MODSong(Song):
         elif os_name == "Darwin":
             subprocess.run([f"./bins/{os_name}/ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
         elif os_name == "Linux":
-            subprocess.run([f"./bins/{os_name}/ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
+            # subprocess.run([f"./bins/{os_name}/ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
+            subprocess.run([f"ffmpeg", "-i", f"{noext[0]}.mod", f"{noext[0]}.mod.wav"], check=True)
         else:
             raise NotImplementedError(f"Unsupported OS: {os_name}.")
         
